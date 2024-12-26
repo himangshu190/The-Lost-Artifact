@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>The Lost Artifact</title>
+<style>
+body {
+  font-family: monospace;
+  background-image: url("background.jpg"); /* Replace with your image path */
+  background-size: cover;
+  background-repeat: no-repeat;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+  overflow: hidden;
+}
+
+#game-container {
+  background-color: rgba(0, 0, 0, 0.7);
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 800px;
+  width: 90%;
+  margin-top: 20px;
+  box-sizing: border-box;
+}
+
+h1 {
+  text-align: center;
+}
+
+#output {
+  white-space: pre-wrap;
+  min-height: 200px;
+  overflow-y: auto;
+  margin-bottom: 10px;
+}
+
+#input {
+  width: calc(100% - 10px);
+  padding: 5px;
+  box-sizing: border-box;
+  background-color: rgba(255, 255, 255, 0.8);
+  border: none;
+  border-radius: 5px;
+  color: black;
+}
+
+#input:focus {
+  outline: none;
+}
+</style>
+</head>
+<body>
+<div id="game-container">
+  <h1>The Lost Artifact</h1>
+  <div id="output"></div>
+  <input type="text" id="input" autofocus>
+</div>
+
+<audio id="backgroundMusic" loop>
+  <source src="background_music.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+
+<audio id="doorSound">
+  <source src="door_sound.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+
+<audio id="itemSound">
+  <source src="item_sound.mp3" type="audio/mpeg">
+  Your browser does not support the audio element.
+</audio>
+
+<script>
+const output = document.getElementById("output");
+const input = document.getElementById("input");
+const backgroundMusic = document.getElementById("backgroundMusic");
+const doorSound = document.getElementById("doorSound");
+const itemSound = document.getElementById("itemSound");
+
+const locations = {
+  "start": {
+    description: "You awaken in a dimly lit chamber. Stone walls surround you, damp and cold. A narrow passage leads north, and a heavy wooden door is to the east.",
+    exits: { north: "passage", east: "locked_door" },
+    items: ["torch"]
+  },
+  "passage": {
+    description: "You are in a narrow, winding passage. The air is stale. To the south is the chamber where you awoke, and to the west you see a faint light.",
+    exits: { south: "start", west: "library" }
+  },
+  "library": {
+    description: "You enter a large library. Bookshelves stretch to the high ceiling, filled with ancient tomes. A strange symbol is etched on a lectern in the center of the room. A key lies on a table.",
+    exits: { east: "passage", north: null },
+    items: ["ancient_book", "key"]
+  },
+  "locked_door": {
+    description: "A heavy wooden door, it looks very sturdy. You see a keyhole.",
+    exits: { west: "start"}
+  },
+  "hidden_chamber": {
+    description: "You enter a hidden chamber. In the center sits a pedestal upon which rests a gleaming artifact. You have found the Lost Artifact!",
+    exits: {}
+  }
+};
+
+let currentLocation = locations.start;
+let inventory = [];
+let hasReadBook = false;
+
+function playSound(sound) {
+  if (sound) {
+    sound.currentTime = 0;
+    sound.play();
+  }
+}
+
+function showLocation() {
+  output.innerHTML += currentLocation.description + "<br>";
+  if (currentLocation.items && currentLocation.items.length > 0) {
+    output.innerHTML += "You see: " + currentLocation.items.join(", ") + "<br>";
+  }
+}
+
+function handleInput(command) {
+  output.innerHTML += "> " + command + "<br>";
+  const words = command.toLowerCase().split(" ");
+
+  if (words[0] === "go") {
+    const direction = words[1];
+    if (currentLocation.exits && currentLocation.exits[direction]) {
+        if (currentLocation.exits[direction] === null){
+            output.innerHTML += "The way is blocked.<br>";
+        } else {
+            currentLocation = locations[currentLocation.exits[direction]];
+            playSound(doorSound);
+            showLocation();
+        }
+    } else {
+      output.innerHTML += "You can't go that way.<br>";
+    }
+  } else if (words[0] === "take") {
+    if (currentLocation.items && currentLocation.items.includes(words[1])) {
+      inventory.push(words[1]);
+      currentLocation.items = currentLocation.items.filter(item => item !== words[1]);
+      playSound(itemSound);
+      output.innerHTML += "You take the " + words[1] + ".<br>";
+    } else {
+      output.innerHTML += "You can't take that.<br>";
+    }
+  } else if (words[0] === "inventory") {
+    if (inventory.length > 0) {
+      output.innerHTML += "You are carrying: " + inventory.join(", ") + "<br>";
+    } else {
+      output.innerHTML += "You are carrying nothing.<br>";
+    }
+  } else if (words[0] === "examine") {
+    if (words[1] === "lectern" && currentLocation === locations.library) {
+      output.innerHTML += "The symbol on the lectern resembles a stylized eye. Beneath it are faint markings.<br>";
+    } else if (words[1] === "book" && currentLocation === locations.library && inventory.includes("ancient_book")) {
+      output.innerHTML += "The book details the history of a powerful artifact hidden within these ruins. It mentions a hidden chamber opened by a specific sequence of actions.<br>";
+      hasReadBook = true;
+    }
+    else {
+        output.innerHTML += "There is nothing special about it.<br>"
+    }
+  } else if (words[0] === "use") {
+    if (words[1] === "torch" && currentLocation === locations.library && hasReadBook) {
+      output.innerHTML += "As you hold the torch to the lectern, the faint markings glow, and a hidden door slides open to the north!<br>";
+      locations.library.exits.north = "hidden_chamber";
+      playSound(doorSound);
+    } else if (words[1] === "key" && currentLocation == locations.locked_door && inventory.includes("key")){
+        output.innerHTML += "You put the key in the keyhole and turn. Click! The door is now unlocked. <br>";
+        locations.locked_door.exits.east = "start";
+        playSound(doorSound);
+    } else {
+      output.innerHTML += "Nothing happens.<br>";
+    }
+  } else {
+    output.innerHTML += "I don't understand.<br>";
+  }
+
+  input.value = "";
+    if (currentLocation === locations.hidden_chamber) {
+        input.disabled = true;
+        backgroundMusic.pause();
+        output.innerHTML += "<br>Congratulations! You have completed the game!";
+    }
+}
+
+window.onload = function() {
+    playSound(backgroundMusic);
+};
+
+input.addEventListener("keyup", function(event) {
+  if (event.key === "Enter") {
+    handleInput(input.value);
+  }
+});
+
+showLocation();
+</script>
+
+</body>
+</html>
